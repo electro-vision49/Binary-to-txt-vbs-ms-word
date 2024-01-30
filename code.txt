@@ -1,0 +1,134 @@
+Sub PrintArr(myArray() As Variant)
+    Dim i As Long
+    For i = LBound(myArray) To UBound(myArray)
+        Debug.Print myArray(i)
+    Next i
+End Sub
+
+
+
+
+Sub ProcessDataFileAndPopulateWord()
+    ' Define variables
+    Dim filePath As String
+    Dim wordApp As Object
+    Dim wordDoc As Object
+    Dim fileNumber As Integer
+    Dim bytesRead() As Byte
+    Dim syncWord()
+    Dim headerBytes()
+    Dim dataStartByte As Integer
+    Dim conditionByteValue As Byte
+    Dim tableValues()
+    
+    ' Set the file path (replace with your actual file path)
+    filePath = "D:\Prjs\dsrAutomate_MSWord\dsr_template.docx"
+    
+    ' Set the synchronization word (replace with your sync word)
+    syncWord = Array(&H95, &HEC, &H35, &HBF)
+    Dim anda As Long
+    For anda = LBound(syncWord) To UBound(syncWord)
+        Debug.Print Hex(syncWord(anda))
+    Next anda
+    
+    ' Set the header bytes (replace with your header bytes)
+    headerBytes = Array(&H11, &H22, &H33, &H44)
+    
+    ' Set the position to start reading data
+    dataStartByte = 20
+    
+    ' Set the condition byte value
+    conditionByteValue = &H55
+    
+    ' Set table values (replace with your actual values)
+    tableValues = Array("Value1", "Value2", "Value3", "Value4")
+    
+    ' Open the Word application and create a new document
+    Set wordApp = CreateObject("Word.Application")
+    wordApp.Visible = True ' Set to False if you don't want to show Word
+    
+    Set wordDoc = wordApp.Documents.Add
+    
+    ' Open the binary file for reading
+    fileNumber = FreeFile
+    Open filePath For Binary As fileNumber
+    
+    ' Read the bytes from the file
+    ReDim bytesRead(1 To LOF(fileNumber))
+    Get fileNumber, , bytesRead
+    
+    ' Close the file
+    Close fileNumber
+    
+    ' Process the data based on the conditions
+    Dim i As Integer
+    Dim dataIndex As Integer
+    dataIndex = dataStartByte
+    
+    For i = 1 To UBound(syncWord)
+        If bytesRead(dataIndex + i - 1) <> syncWord(i) Then
+            MsgBox "Sync word not found!"
+            Exit Sub
+        End If
+    Next i
+    
+    dataIndex = dataIndex + UBound(syncWord)
+    
+    For i = 1 To UBound(headerBytes)
+        If bytesRead(dataIndex + i - 1) <> headerBytes(i) Then
+            MsgBox "Header bytes not found!"
+            Exit Sub
+        End If
+    Next i
+    
+    dataIndex = dataIndex + UBound(headerBytes)
+    
+    If bytesRead(dataIndex) = conditionByteValue Then
+        ' Populate Word document with table values
+        For i = LBound(tableValues) To UBound(tableValues)
+            wordDoc.Tables(1).Cell(i + 1, 2).Range.Text = tableValues(i)
+        Next i
+    Else
+        MsgBox "Condition not met!"
+    End If
+End Sub
+
+Sub DumpBytesToFile(filePath As String)
+    Dim fileNumberIn As Integer
+    Dim fileNumberOut As Integer
+    Dim outputFilePath As String
+    Dim bytesRead() As Byte
+
+    ' Open the binary file for reading
+    fileNumberIn = FreeFile
+    Open filePath For Binary As fileNumberIn
+    
+    ' Read the bytes from the file
+    ReDim bytesRead(1 To LOF(fileNumberIn))
+    Get fileNumberIn, , bytesRead
+    
+    ' Close the input file
+    Close fileNumberIn
+    
+    ' Create the output file path
+    outputFilePath = Replace(filePath, ".", "_output.") & "txt"
+    
+    ' Open the text file for writing
+    fileNumberOut = FreeFile
+    Open outputFilePath For Output As fileNumberOut
+    
+    ' Loop through each byte and write it to the file
+    Dim i As Long
+    For i = LBound(bytesRead) - 1 To UBound(bytesRead) - 1
+        Print #fileNumberOut, Hex(bytesRead(i + 1)); ' Write hexadecimal representation
+    Next i
+    
+    ' Close the output file
+    Close fileNumberOut
+End Sub
+
+Sub ExampleUsage()
+    ' Replace "C:\Path\To\Your\File.bin" with your actual file path
+    DumpBytesToFile "D:\Prjs\dsrAutomate_MSWord\dsr_template.docx"
+End Sub
+
